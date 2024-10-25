@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -52,25 +53,29 @@ func getTasks(res http.ResponseWriter, req *http.Request) {
 	}
 	res.Header().Set("Content-Type", "application/json")
 	res.WriteHeader(http.StatusOK)
-	res.Write(respon)
+	_, err = res.Write(respon)
+	if err != nil {
+		http.Error(res, err.Error(), http.StatusBadRequest)
+		return
+	}
 }
 
 func deleteTask(res http.ResponseWriter, req *http.Request) {
-	idd := chi.URLParam(req, "idd")
-	_, ok := tasks[idd]
+	id := chi.URLParam(req, "id")
+	_, ok := tasks[id]
 	if !ok {
 		res.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	delete(tasks, idd)
+	delete(tasks, id)
 
 	res.Header().Set("Content-Type", "application/json")
 	res.WriteHeader(http.StatusOK)
 }
 
 func getTask(res http.ResponseWriter, req *http.Request) {
-	idd := chi.URLParam(req, "idd")
-	response, err := json.Marshal(tasks[idd])
+	id := chi.URLParam(req, "id")
+	response, err := json.Marshal(tasks[id])
 	if err != nil {
 		http.Error(res, err.Error(), http.StatusBadRequest)
 		return
@@ -78,7 +83,11 @@ func getTask(res http.ResponseWriter, req *http.Request) {
 
 	res.Header().Set("Content-Type", "application/json")
 	res.WriteHeader(http.StatusOK)
-	res.Write(response)
+	_, err = res.Write(response)
+	if err != nil {
+		http.Error(res, err.Error(), http.StatusBadRequest)
+		return
+	}
 }
 
 func postTask(res http.ResponseWriter, req *http.Request) {
@@ -96,7 +105,15 @@ func postTask(res http.ResponseWriter, req *http.Request) {
 		http.Error(res, err.Error(), http.StatusBadRequest)
 		return
 	}
+	for _, ts := range tasks {
+		if ts.ID == task.ID {
+			err := errors.New("Id уже существует")
+			http.Error(res, err.Error(), http.StatusBadRequest)
+			fmt.Println(err)
+			return
+		}
 
+	}
 	tasks[task.ID] = task
 
 	res.Header().Set("Content-Type", "application/json")
@@ -105,9 +122,9 @@ func postTask(res http.ResponseWriter, req *http.Request) {
 }
 func main() {
 	r := chi.NewRouter()
-	r.Delete("/tasks/{idd}", deleteTask)
+	r.Delete("/tasks/{id}", deleteTask)
 	r.Get("/tasks", getTasks)
-	r.Get("/tasks/{idd}", getTask)
+	r.Get("/tasks/{id}", getTask)
 	r.Post("/tasks", postTask)
 	// здесь регистрируйте ваши обработчики
 	// ...
